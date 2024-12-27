@@ -176,6 +176,7 @@ def main(
         per_device_eval_batch_size=batch_size,
         logging_dir=os.path.join(output_dir, "logs"),
         learning_rate=2e-5,
+        torch_compile=True,
     )
     logger.info("Training arguments set up.")
 
