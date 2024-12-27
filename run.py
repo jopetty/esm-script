@@ -3,7 +3,12 @@ import logging
 import pandas as pd
 import argparse
 from datasets import Dataset
-from transformers import AutoTokenizer, EsmForSequenceClassification, TrainingArguments, Trainer
+from transformers import (
+    AutoTokenizer,
+    EsmForSequenceClassification,
+    TrainingArguments,
+    Trainer,
+)
 import torch
 import json
 
@@ -12,19 +17,29 @@ torch.cuda.empty_cache()
 # Setup logging
 logging.basicConfig(
     filename="esm_training.log",  # Temporary log file (will move to output_dir)
-    filemode="w",                
-    format="%(asctime)s - %(levelname)s - %(message)s", 
-    level=logging.INFO
+    filemode="w",
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    level=logging.INFO,
 )
 logger = logging.getLogger()
 
 logger.info("Script started.")
 
 # Argument parser to choose pseudoseq or fullseq and output directory
-parser = argparse.ArgumentParser(description="Train ESM model with pseudoseq or fullseq for HLA.")
-parser.add_argument("--sequence_type", choices=["pseudoseq", "fullseq"], required=True, 
-                    help="Choose between 'pseudoseq' or 'fullseq' for input sequence type.")
-parser.add_argument("--output_dir", required=True, help="Directory to save outputs (model, tokenizer, logs, etc.).")
+parser = argparse.ArgumentParser(
+    description="Train ESM model with pseudoseq or fullseq for HLA."
+)
+parser.add_argument(
+    "--sequence_type",
+    choices=["pseudoseq", "fullseq"],
+    required=True,
+    help="Choose between 'pseudoseq' or 'fullseq' for input sequence type.",
+)
+parser.add_argument(
+    "--output_dir",
+    required=True,
+    help="Directory to save outputs (model, tokenizer, logs, etc.).",
+)
 args = parser.parse_args()
 
 # Ensure output directory exists
@@ -48,7 +63,10 @@ logger.info(f"Output directory: {output_dir}")
 
 # Load data
 logger.info("Loading datasets...")
-hla_allele = pd.read_csv("~/hlathena_speduptrainorignn/hlathenav2/hlathena/data/ABCG_prot.parsed.clean.updated.ALL.FEATS.txt", sep=" ")
+hla_allele = pd.read_csv(
+    "~/hlathena_speduptrainorignn/hlathenav2/hlathena/data/ABCG_prot.parsed.clean.updated.ALL.FEATS.txt",
+    sep=" ",
+)
 data_all = pd.read_csv("/home/jeb7273/hlathenav2/JB_addedFiles/test_split.txt", sep=" ")
 
 logger.info("Datasets loaded successfully.")
@@ -58,10 +76,46 @@ num_train_ep = 10
 
 # Pocket positions
 indices_to_subset = [
-    7, 9, 13, 24, 31, 45, 59, 62, 63, 65, 66, 67, 69,
-    70, 71, 73, 74, 76, 77, 80, 81, 84, 95, 97, 99,
-    110, 114, 116, 118, 138, 143, 147, 150, 152, 156,
-    158, 159, 163, 167, 171
+    7,
+    9,
+    13,
+    24,
+    31,
+    45,
+    59,
+    62,
+    63,
+    65,
+    66,
+    67,
+    69,
+    70,
+    71,
+    73,
+    74,
+    76,
+    77,
+    80,
+    81,
+    84,
+    95,
+    97,
+    99,
+    110,
+    114,
+    116,
+    118,
+    138,
+    143,
+    147,
+    150,
+    152,
+    156,
+    158,
+    159,
+    163,
+    167,
+    171,
 ]
 
 # Prepare sequences based on the selected type
@@ -69,7 +123,7 @@ logger.info("Preparing sequences...")
 if args.sequence_type == "pseudoseq":
     logger.info("Processing pseudoseq...")
     hla_allele["hla_pocket"] = hla_allele["seq"].apply(
-        lambda x: ''.join([x[i] for i in indices_to_subset if i < len(x)])
+        lambda x: "".join([x[i] for i in indices_to_subset if i < len(x)])
     )
     hla_allele_dict = hla_allele.set_index("allele")["hla_pocket"].to_dict()
     max_len = 11 + 40
@@ -109,10 +163,14 @@ logger.info("Datasets converted to Hugging Face Dataset format.")
 model_name = "facebook/esm2_t33_650M_UR50D"
 logger.info(f"Loading model and tokenizer: {model_name}")
 tokenizer = AutoTokenizer.from_pretrained(model_name)
-model = EsmForSequenceClassification.from_pretrained(model_name, num_labels=len(data_train['label'].unique()))
+model = EsmForSequenceClassification.from_pretrained(
+    model_name, num_labels=len(data_train["label"].unique())
+)
 
 # Preprocess the dataset
 logger.info("Preprocessing datasets...")
+
+
 def preprocess_function(input_data):
     tokenized = tokenizer(
         input_data["concat_seq"],
@@ -122,6 +180,7 @@ def preprocess_function(input_data):
     )
     tokenized["labels"] = input_data["label"]
     return tokenized
+
 
 train_dataset = train_dataset.map(preprocess_function, batched=True)
 val_dataset = val_dataset.map(preprocess_function, batched=True)
@@ -186,4 +245,3 @@ with open(eval_results_file, "w") as f:
     json.dump(evaluation_results, f, indent=4)
 
 logger.info(f"Evaluation results saved to {eval_results_file}")
-
